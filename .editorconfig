@@ -1,0 +1,10 @@
+[*]
+end_of_line = lf
+insert_final_netline = true
+
+[*.{py,md}]
+charset = uft-8
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
