@@ -70,6 +70,6 @@ is still a work in progressing getting the data from the packets we're looking f
 scapy's interface). Once you're setup, you can try running the program:
 
 ```
-sudo $(which python) airsec/wifi_sniffer.py
+sudo $(which python) airsec/wifi_sniffer.py <iface>
 ```
 

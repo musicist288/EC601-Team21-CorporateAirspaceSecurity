@@ -3,6 +3,7 @@ from scapy.all import *
 import time
 from dataclasses import dataclass
 import asyncio
+import click
 
 RUNNING_TASKS = []
 
@@ -46,7 +47,7 @@ def get_wifi_packet_info(packet):
                         dst_addr=dst_addr,
                         recv_addr=recv_addr)
 
-        print(packet)
+        print(wp)
 
 
 
@@ -54,5 +55,11 @@ async def sniff_interface(iface):
     sniff(iface=iface, prn=get_wifi_packet_info)
 
 
+@click.command()
+@click.argument("iface")
+def monitor(iface):
+    asyncio.run(sniff_interface(iface))
+
 if __name__ == "__main__":
-    asyncio.run(sniff_interface("wlan0"))
+    monitor()
+
