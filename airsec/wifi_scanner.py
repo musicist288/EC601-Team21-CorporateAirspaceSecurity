@@ -46,8 +46,7 @@ def get_wifi_packet_info(packet):
                         dst_addr=dst_addr,
                         recv_addr=recv_addr)
 
-        import pdb; pdb.set_trace()
-        #print(packet)
+        print(packet)
 
 
 
