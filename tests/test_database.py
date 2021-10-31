@@ -14,11 +14,11 @@ class DatabaseTest(unittest.TestCase):
     def setUp(self):
         super().setUp()
 
-        conf = config.load()
-        if not conf.timescaledb_test_dbname:
-            self.skipTest("Skipping datatbase test. Test DB is not configured.")
+        try:
+            db.init("test")
+        except ValueError as err:
+            self.skipTest("Skipping tests due to an error: %s" % err)
 
-        db.set_active_database(conf.timescaledb_test_dbname)
         db.setup_database()
 
 
@@ -79,3 +79,34 @@ class WifiPacketTests(DatabaseTest):
         self.assertEqual(result['bssid'], bssid)
         self.assertEqual(result['rssi'], rssi)
         self.assertEqual(result['time'], date)
+
+
+    def test_conditional_insert(self):
+        date = datetime.now()
+        bssid = "11:22:33:44:55:66"
+        rssi = -39
+        cols = ",".join(db.WifiPacket.column_names())
+        sql = f"""
+        INSERT INTO {db.WifiPacket.name} ({cols})
+        SELECT * from (
+            VALUES ('{date}'::timestamp, '{bssid}'::macaddr, {rssi})
+        ) as sel({cols})
+        WHERE EXISTS (
+            SELECT * FROM {db.WifiAllowList.name} allow WHERE allow.bssid = sel.bssid
+        );
+        """
+
+        with db.get_cursor() as cursor:
+            cursor.execute(sql)
+
+            data = db.WifiPacket.select()
+            self.assertEqual(len(data), 0)
+
+            db.WifiAllowList.add(bssid)
+            allowed = db.WifiAllowList.select()
+            self.assertEqual(len(allowed), 1)
+
+            cursor.execute(sql)
+
+            data = db.WifiPacket.select()
+            self.assertEqual(len(data), 1)

@@ -8,47 +8,68 @@ from dateutil import tz
 
 from . import config
 
-TABLES = []
+class DBConnection:
+    """Helper class to manage a single connection per process."""
 
-def register_table(cls):
-    if not issubclass(cls, Table):
-        raise TypeError("Registered tables must subclass Table")
+    def __init__(self):
+        # Note that everything here is not set in init so the top
+        # level module can create a single connection class without
+        # needing to load outside resources at startup.
+        self.connection = None
+        self.username = None
+        self.password = None
+        self.host = None
+        self.port = None
+        self.active_database = None
 
-    TABLES.append(cls)
-    return cls
+    def load_config(self, conf: config.AirsecConfig, database=None):
+        self.username = conf.timescaledb_username
+        self.password = conf.timescaledb_password
+        self.host = conf.timescaledb_hostname
+        self.port = conf.timescaledb_port
+        self.active_database = database
 
-## TODO: Is there a better way to set the active database
-## oether than setting up a global
-ACTIVE_DB = None
-def set_active_database(dbname: str):
-    global ACTIVE_DB
-    ACTIVE_DB = dbname
+    @property
+    def connection_string(self):
+        return "postgres://{username}:{password}@{host}:{port}/{active_db}".format(
+            username=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            active_db=self.active_database
+        )
 
+    def connect(self):
+        if self.connection is None:
+            self.connection = psycopg2.connect(self.connection_string)
 
-def get_connection_string(db_name=True) -> str:
-    conf = config.load()
-    if ACTIVE_DB is None:
-        set_active_database(conf.timescaledb_dbname)
+    def close(self):
+        if self.connection is not None:
+            self.connection.close()
+            self.connection = None
 
-    conn_str = "postgres://{username}:{password}@{host}:{port}/{db}"
+    def set_active_database(self, db_name: str):
+        was_connected = self.connection is not None
+        self.close()
+        self.active_database = db_name
+        if was_connected:
+            self.connect()
 
-    return conn_str.format(
-        username=conf.timescaledb_username,
-        password=conf.timescaledb_password,
-        host=conf.timescaledb_hostname,
-        port=conf.timescaledb_port,
-        db=ACTIVE_DB
-    )
+    @contextmanager
+    def cursor(self):
+        if self.connection is None:
+            raise RuntimeError("Not connected to a database.")
 
-
-@contextmanager
-def get_cursor():
-    conn_str = get_connection_string()
-    with psycopg2.connect(conn_str) as conn:
-        cursor = conn.cursor()
+        cursor = self.connection.cursor()
         yield cursor
         cursor.close()
 
+
+DATABASE = DBConnection()
+@contextmanager
+def get_cursor():
+    with DATABASE.cursor() as cursor:
+        yield cursor
 
 class Table:
 
@@ -80,6 +101,24 @@ class Table:
                     field=cls.hypertable_field_name)
                 cursor.execute(sql)
 
+    @classmethod
+    def column_names(cls):
+        return [f[0] for f in cls.fields]
+
+
+#####################
+### Table Definitions
+#####################
+
+TABLES = []
+
+def register_table(cls):
+    if not issubclass(cls, Table):
+        raise TypeError("Registered tables must subclass Table")
+
+    TABLES.append(cls)
+    return cls
+
 
 @register_table
 class WifiPacket(Table):
@@ -106,8 +145,8 @@ class WifiPacket(Table):
     @classmethod
     def select(cls, filter=""):
         data = []
-        column_names = [f[0] for f in cls.fields]
-        sql = f"SELECT * FROM {cls.name} {filter}"
+        column_names = cls.column_names()
+        sql = f"SELECT * FROM {cls.name} {filter};"
         with get_cursor() as cursor:
             cursor.execute(sql)
             results = cursor.fetchall()
@@ -162,6 +201,36 @@ class WifiAllowList(Table):
 
         return data
 
+# Environment Macros for grouping config variables
+ENVIRONMENTS = {
+    "production": {
+        "database_key": "timescaledb_dbname"
+    },
+    "test": {
+        "database_key": "timescaledb_test_dbname"
+    }
+}
+
+
+##############################
+# Public API Helper functions
+##############################
+
+def init(env="production"):
+    conf = config.load()
+    DATABASE.load_config(conf)
+
+    if env not in ENVIRONMENTS:
+        raise ValueError("Unknown environment: %s" % env)
+
+    dbname_key = ENVIRONMENTS[env]["database_key"]
+    db_name = getattr(conf, dbname_key)
+    if not db_name:
+        raise ValueError("%s database name not defined in config: %s" % (env, dbname_key))
+
+    DATABASE.set_active_database(db_name)
+    DATABASE.connect()
+
 
 def setup_database() -> None:
     with get_cursor() as cursor:
@@ -172,4 +241,5 @@ def setup_database() -> None:
 
 
 if __name__ == "__main__":
+    init()
     setup_database()
