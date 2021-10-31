@@ -8,8 +8,16 @@ authors = ["Your Name <you@example.com>"]
 python = "^3.9"
 scapy = "^2.4.5"
 click = "^8.0.3"
+psycopg2 = "^2.9.1"
+python-dotenv = "^0.19.1"
+PyYAML = "^6.0"
+dacite = "^1.6.0"
+python-dateutil = "^2.8.2"
 
 [tool.poetry.dev-dependencies]
+mypy = "^0.910"
+types-PyYAML = "^5.4.12"
+pytest = "^6.2.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
