@@ -1,8 +1,10 @@
 from datetime import datetime
 import unittest
 
-from airsec import config
-from airsec import db
+from airsec import (
+    db,
+    interfaces
+)
 
 class DatabaseTest(unittest.TestCase):
     """Baseclass for database unit tests.
@@ -81,32 +83,33 @@ class WifiPacketTests(DatabaseTest):
         self.assertEqual(result['time'], date)
 
 
-    def test_conditional_insert(self):
+    def test_conditional_insert_unauthorized(self):
         date = datetime.now()
         bssid = "11:22:33:44:55:66"
         rssi = -39
-        cols = ",".join(db.WifiPacket.column_names())
-        sql = f"""
-        INSERT INTO {db.WifiPacket.name} ({cols})
-        SELECT * from (
-            VALUES ('{date}'::timestamp, '{bssid}'::macaddr, {rssi})
-        ) as sel({cols})
-        WHERE EXISTS (
-            SELECT * FROM {db.WifiAllowList.name} allow WHERE allow.bssid = sel.bssid
-        );
-        """
+        packet = interfaces.WifiPacket(
+            timestamp=date.timestamp(),
+            src_addr=bssid,
+            recv_addr=bssid,
+            dst_addr=bssid,
+            rssi=rssi)
 
-        with db.get_cursor() as cursor:
-            cursor.execute(sql)
+        db.add_packet_if_unauthorized(packet)
+        data = db.WifiPacket.select()
+        self.assertEqual(len(data), 1)
 
-            data = db.WifiPacket.select()
-            self.assertEqual(len(data), 0)
+    def test_conditional_insert_authorized(self):
+        date = datetime.now()
+        bssid = "11:22:33:44:55:66"
+        rssi = -39
+        packet = interfaces.WifiPacket(
+            timestamp=date.timestamp(),
+            src_addr=bssid,
+            recv_addr=bssid,
+            dst_addr=bssid,
+            rssi=rssi)
 
-            db.WifiAllowList.add(bssid)
-            allowed = db.WifiAllowList.select()
-            self.assertEqual(len(allowed), 1)
-
-            cursor.execute(sql)
-
-            data = db.WifiPacket.select()
-            self.assertEqual(len(data), 1)
+        db.WifiAllowList.add(bssid)
+        db.add_packet_if_unauthorized(packet)
+        data = db.WifiPacket.select()
+        self.assertEqual(len(data), 0)

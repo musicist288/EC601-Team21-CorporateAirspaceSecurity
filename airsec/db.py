@@ -1,3 +1,4 @@
+import atexit
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
@@ -7,6 +8,7 @@ import psycopg2
 from dateutil import tz
 
 from . import config
+from . import interfaces
 
 class DBConnection:
     """Helper class to manage a single connection per process."""
@@ -42,6 +44,9 @@ class DBConnection:
     def connect(self):
         if self.connection is None:
             self.connection = psycopg2.connect(self.connection_string)
+            with self.cursor() as cur:
+                # Will raise psycopg2.OperationError if the connection failed.
+                cur.execute("SELECT 1")
 
     def close(self):
         if self.connection is not None:
@@ -62,10 +67,13 @@ class DBConnection:
 
         cursor = self.connection.cursor()
         yield cursor
+        self.connection.commit()
         cursor.close()
 
 
 DATABASE = DBConnection()
+atexit.register(DATABASE.close)
+
 @contextmanager
 def get_cursor():
     with DATABASE.cursor() as cursor:
@@ -134,8 +142,12 @@ class WifiPacket(Table):
     date_format = "%Y-%m-%dT%H:%M:%S.%f"
 
     @classmethod
+    def format_date(cls, dt: datetime):
+         return dt.astimezone(timezone.utc).strftime(cls.date_format)
+
+    @classmethod
     def add(cls, dt: datetime, bssid: str, rssi: int):
-        timestamp = dt.astimezone(timezone.utc).strftime(cls.date_format)
+        timestamp = cls.format_date(dt)
         values = f"('{timestamp}', '{bssid}', '{rssi}')"
         sql = f"INSERT INTO {cls.name} VALUES {values};"
         with get_cursor() as cursor:
@@ -237,8 +249,27 @@ def setup_database() -> None:
         cursor.execute("CREATE EXTENSION IF NOT EXISTS timescaledb;");
 
     for table in TABLES:
+        print("Creating table: %s" % table.name)
         table.create()
 
+def add_packet_if_unauthorized(packet: interfaces.WifiPacket):
+    cols = ",".join(WifiPacket.column_names())
+    bssid = packet.recv_addr
+    rssi = packet.rssi
+    date = WifiPacket.format_date(datetime.fromtimestamp(packet.timestamp))
+
+    sql = f"""
+    INSERT INTO {WifiPacket.name} ({cols})
+    SELECT * from (
+        VALUES ('{date}'::timestamp, '{bssid}'::macaddr, {rssi})
+    ) as sel({cols})
+    WHERE NOT EXISTS (
+        SELECT * FROM {WifiAllowList.name} allow WHERE allow.bssid = sel.bssid
+    );
+    """
+
+    with get_cursor() as cursor:
+        cursor.execute(sql)
 
 if __name__ == "__main__":
     init()

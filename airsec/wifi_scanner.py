@@ -1,24 +1,18 @@
 #!/usr/bin/env python
 from scapy.all import *
 import time
-from dataclasses import dataclass
 import asyncio
 import click
 
+from . import (
+    logger,
+    db
+)
+from .interfaces import WifiPacket
+
 RUNNING_TASKS = []
 
-
-@dataclass
-class WifiPacket:
-    timestamp: float
-
-    src_addr: str
-    recv_addr: str
-
-    dst_addr: str
-    rssi: str
-
-
+WifiPacketQueue = asyncio.Queue()
 
 def get_wifi_packet_info(packet):
     if IP in packet:
@@ -47,9 +41,11 @@ def get_wifi_packet_info(packet):
                         dst_addr=dst_addr,
                         recv_addr=recv_addr)
 
-        print(wp)
-
-
+        try:
+            db.add_packet_if_unauthorized(wp)
+            logger.debug("Added packet to queue.")
+        except asyncio.QueueFull:
+            logger.warning("Failed to WiFiPacket, queue full.")
 
 async def sniff_interface(iface):
     sniff(iface=iface, prn=get_wifi_packet_info)
