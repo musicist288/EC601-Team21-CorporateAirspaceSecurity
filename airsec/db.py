@@ -1,4 +1,5 @@
 import atexit
+import binascii
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
@@ -129,29 +130,43 @@ def register_table(cls):
 
 
 @register_table
-class WifiPacket(Table):
+class BeaconPacket(Table):
 
-    name = "wifi_packet"
+    name = "beacon_packet"
     fields = (
         ("time", "TIMESTAMP WITHOUT TIME ZONE", "NOT NULL"),
         ("bssid", "MACADDR", "NOT NULL"),
-        ("rssi", "INTEGER", "NOT NULL")
+        ("ssid", "VARCHAR(255)", "NULL"), # Not all beacon packets have SSIDs
+        ("channel", "INTEGER", "NOT NULL"),
+        ("rssi", "INTEGER", "NOT NULL"),
+        ("payload", "BYTEA", "NOT NULL"),
     )
     is_hypertable = True
 
     date_format = "%Y-%m-%dT%H:%M:%S.%f"
 
     @classmethod
+    def format_bytes(cls, data: bytes) -> str:
+        return "E'\X{}'".format(binascii.hexlify(data).decode())
+
+
+    @classmethod
     def format_date(cls, dt: datetime):
          return dt.astimezone(timezone.utc).strftime(cls.date_format)
 
     @classmethod
-    def add(cls, dt: datetime, bssid: str, rssi: int):
+    def add(cls, dt: datetime, bssid: str, ssid: str, channel: int, rssi: int, payload: bytes):
         timestamp = cls.format_date(dt)
-        values = f"('{timestamp}', '{bssid}', '{rssi}')"
-        sql = f"INSERT INTO {cls.name} VALUES {values};"
+        values = [
+            timestamp,
+            bssid,
+            ssid,
+            channel,
+            rssi,
+        ]
+        sql = f"INSERT INTO {cls.name} VALUES (%s, %s, %s, %s, %s, {cls.format_bytes(payload)});"
         with get_cursor() as cursor:
-            cursor.execute(sql)
+            cursor.execute(sql, values)
 
 
     @classmethod
@@ -167,14 +182,15 @@ class WifiPacket(Table):
                 record['time'] = (record['time'].replace(tzinfo=tz.tzutc())
                                                 .astimezone(tz.tzlocal())
                                                 .replace(tzinfo=None))
+                record['payload'] = binascii.unhexlify(record['payload'][1:])
                 data.append(record)
 
         return data
 
 
 @register_table
-class WifiAllowList(Table):
-    name = "wifi_allow_list"
+class AllowedBeacons(Table):
+    name = "allowed_beacons"
     fields = (
         ("bssid", "MACADDR", "NOT NULL"),
     )
@@ -252,19 +268,24 @@ def setup_database() -> None:
         print("Creating table: %s" % table.name)
         table.create()
 
-def add_packet_if_unauthorized(packet: interfaces.WifiPacket):
-    cols = ",".join(WifiPacket.column_names())
-    bssid = packet.recv_addr
-    rssi = packet.rssi
-    date = WifiPacket.format_date(datetime.fromtimestamp(packet.timestamp))
+def add_packet_if_unauthorized(packet: interfaces.BeaconPacket):
+    cols = ",".join(BeaconPacket.column_names())
+    values = [
+        f"'{BeaconPacket.format_date(packet.time)}'::timestamp",
+        f"'{packet.bssid}'::macaddr",
+        f"'{packet.ssid}'" if packet.ssid else "NULL",
+        f"{packet.channel}",
+        f"{packet.rssi}",
+        f"{BeaconPacket.format_bytes(packet.payload)}::bytea",
+    ]
 
     sql = f"""
-    INSERT INTO {WifiPacket.name} ({cols})
+    INSERT INTO {BeaconPacket.name} ({cols})
     SELECT * from (
-        VALUES ('{date}'::timestamp, '{bssid}'::macaddr, {rssi})
+        VALUES ({", ".join(values)})
     ) as sel({cols})
     WHERE NOT EXISTS (
-        SELECT * FROM {WifiAllowList.name} allow WHERE allow.bssid = sel.bssid
+        SELECT * FROM {AllowedBeacons.name} allow WHERE allow.bssid = sel.bssid
     );
     """
 

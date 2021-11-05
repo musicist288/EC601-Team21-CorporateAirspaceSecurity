@@ -1,11 +1,11 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 @dataclass
-class WifiPacket:
-    timestamp: float
-
-    src_addr: str
-    recv_addr: str
-
-    dst_addr: str
-    rssi: str
+class BeaconPacket:
+    time: datetime
+    bssid: str
+    ssid: str
+    rssi: int
+    channel: int
+    payload: bytes

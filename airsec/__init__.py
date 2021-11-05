@@ -9,18 +9,18 @@ LOGGING_CONFIG = {
     "disable_existing_loggers": True,
     "formatters": {
         "stream": {
-            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s [%(filename)s:%(lineno)d"
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s [%(filename)s:%(lineno)d]"
         }
     },
     "handlers": {
         "stdout": {
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "stream",
             'class': 'logging.StreamHandler',
             'stream': 'ext://sys.stdout'
         },
         "stderr": {
-            "level": "INFO",
+            "level": "DEBUG",
             "formatter": "stream",
             'class': 'logging.StreamHandler',
             'stream': 'ext://sys.stderr'

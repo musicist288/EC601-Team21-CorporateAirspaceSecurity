@@ -50,8 +50,8 @@ class WifiAllowListTest(DatabaseTest):
 
     def test_add_bssid(self):
         bssid = "11:22:33:44:55:66"
-        db.WifiAllowList.add(bssid)
-        data = db.WifiAllowList.select()
+        db.AllowedBeacons.add(bssid)
+        data = db.AllowedBeacons.select()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]['bssid'], bssid)
 
@@ -61,8 +61,8 @@ class WifiAllowListTest(DatabaseTest):
             "11:22:33:44:55:66",
             "77:88:99:11:22:33"
         ]
-        db.WifiAllowList.add(bssids)
-        data = db.WifiAllowList.select()
+        db.AllowedBeacons.add(bssids)
+        data = db.AllowedBeacons.select()
         self.assertEqual(len(data), len(bssids))
         for bid, rec in zip(bssids, data):
             self.assertEqual(rec['bssid'], bid)
@@ -73,43 +73,56 @@ class WifiPacketTests(DatabaseTest):
     def test_log_wifi_packet(self):
         date = datetime.now()
         bssid = "11:22:33:44:55:66"
+        ssid = "InternetAP"
+        channel = 6
         rssi = -39
-        db.WifiPacket.add(date, bssid, rssi)
-        result = db.WifiPacket.select(filter=f"WHERE bssid = '{bssid}'")
+        payload = b"\x01" * 30
+        db.BeaconPacket.add(date, bssid, ssid, channel, rssi, payload)
+        result = db.BeaconPacket.select(filter=f"WHERE bssid = '{bssid}'")
         self.assertEqual(len(result), 1)
         result = result[0]
         self.assertEqual(result['bssid'], bssid)
         self.assertEqual(result['rssi'], rssi)
         self.assertEqual(result['time'], date)
+        self.assertEqual(result['payload'], payload)
+        self.assertEqual(result['ssid'], ssid)
 
 
     def test_conditional_insert_unauthorized(self):
         date = datetime.now()
         bssid = "11:22:33:44:55:66"
+        ssid = "InternetAP"
+        channel = 6
         rssi = -39
-        packet = interfaces.WifiPacket(
-            timestamp=date.timestamp(),
-            src_addr=bssid,
-            recv_addr=bssid,
-            dst_addr=bssid,
-            rssi=rssi)
+        payload = b"\x01" * 30
+        packet = interfaces.BeaconPacket(
+            time=date,
+            bssid=bssid,
+            ssid=ssid,
+            channel=channel,
+            rssi=rssi,
+            payload=payload)
 
         db.add_packet_if_unauthorized(packet)
-        data = db.WifiPacket.select()
+        data = db.BeaconPacket.select()
         self.assertEqual(len(data), 1)
 
     def test_conditional_insert_authorized(self):
         date = datetime.now()
         bssid = "11:22:33:44:55:66"
+        ssid = "InternetAP"
+        channel = 6
         rssi = -39
-        packet = interfaces.WifiPacket(
-            timestamp=date.timestamp(),
-            src_addr=bssid,
-            recv_addr=bssid,
-            dst_addr=bssid,
-            rssi=rssi)
+        payload = b"\x01" * 30
+        packet = interfaces.BeaconPacket(
+            time=date,
+            bssid=bssid,
+            ssid=ssid,
+            channel=channel,
+            rssi=rssi,
+            payload=payload)
 
-        db.WifiAllowList.add(bssid)
+        db.AllowedBeacons.add(bssid)
         db.add_packet_if_unauthorized(packet)
-        data = db.WifiPacket.select()
+        data = db.BeaconPacket.select()
         self.assertEqual(len(data), 0)

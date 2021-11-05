@@ -1,14 +1,17 @@
 import click
-import asyncio
-from airsec import wifi_scanner, db
+from airsec import (
+    wifi_scanner,
+    db,
+    iface_utils,
+)
 
 @click.command()
 @click.argument("iface")
 def run(iface):
+    iface_utils.wifi_set_monitor_mode(iface)
     db.init()
     db.setup_database()
-    el = asyncio.get_event_loop()
-    el.run_until_complete(wifi_scanner.sniff_interface(iface))
+    wifi_scanner.sniff_access_points(iface)
 
 if __name__ == "__main__":
     run()
