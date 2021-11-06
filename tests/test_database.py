@@ -53,7 +53,7 @@ class WifiAllowListTest(DatabaseTest):
         db.AllowedBeacons.add(bssid)
         data = db.AllowedBeacons.select()
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]['bssid'], bssid)
+        self.assertEqual(data[0].bssid, bssid)
 
 
     def test_add_multiple_bssids(self):
@@ -65,7 +65,7 @@ class WifiAllowListTest(DatabaseTest):
         data = db.AllowedBeacons.select()
         self.assertEqual(len(data), len(bssids))
         for bid, rec in zip(bssids, data):
-            self.assertEqual(rec['bssid'], bid)
+            self.assertEqual(rec.bssid, bid)
 
 
 class WifiPacketTests(DatabaseTest):
@@ -81,11 +81,11 @@ class WifiPacketTests(DatabaseTest):
         result = db.BeaconPacket.select(filter=f"WHERE bssid = '{bssid}'")
         self.assertEqual(len(result), 1)
         result = result[0]
-        self.assertEqual(result['bssid'], bssid)
-        self.assertEqual(result['rssi'], rssi)
-        self.assertEqual(result['time'], date)
-        self.assertEqual(result['payload'], payload)
-        self.assertEqual(result['ssid'], ssid)
+        self.assertEqual(result.bssid, bssid)
+        self.assertEqual(result.rssi, rssi)
+        self.assertEqual(result.time, date)
+        self.assertEqual(result.payload, payload)
+        self.assertEqual(result.ssid, ssid)
 
 
     def test_conditional_insert_unauthorized(self):

@@ -154,6 +154,7 @@ class BeaconPacket(Table):
     def format_date(cls, dt: datetime):
          return dt.astimezone(timezone.utc).strftime(cls.date_format)
 
+
     @classmethod
     def add(cls, dt: datetime, bssid: str, ssid: str, channel: int, rssi: int, payload: bytes):
         timestamp = cls.format_date(dt)
@@ -170,20 +171,24 @@ class BeaconPacket(Table):
 
 
     @classmethod
+    def inflate_row(cls, row):
+        column_names = cls.column_names()
+        record = dict(zip(column_names, row))
+        record['time'] = (record['time'].replace(tzinfo=tz.tzutc())
+                                        .astimezone(tz.tzlocal())
+                                        .replace(tzinfo=None))
+        record['payload'] = binascii.unhexlify(record['payload'][1:])
+        return interfaces.BeaconPacket(**record)
+
+    @classmethod
     def select(cls, filter=""):
         data = []
-        column_names = cls.column_names()
         sql = f"SELECT * FROM {cls.name} {filter};"
         with get_cursor() as cursor:
             cursor.execute(sql)
             results = cursor.fetchall()
             for r in results:
-                record = dict(zip(column_names, r))
-                record['time'] = (record['time'].replace(tzinfo=tz.tzutc())
-                                                .astimezone(tz.tzlocal())
-                                                .replace(tzinfo=None))
-                record['payload'] = binascii.unhexlify(record['payload'][1:])
-                data.append(record)
+                data.append(cls.inflate_row(r))
 
         return data
 
@@ -225,7 +230,7 @@ class AllowedBeacons(Table):
             cur.execute(sql)
             results = cur.fetchall()
             for r in results:
-                data.append(dict(zip(column_names, r)))
+                data.append(interfaces.AllowedBeacon(**dict(zip(column_names, r))))
 
         return data
 
@@ -291,6 +296,50 @@ def add_packet_if_unauthorized(packet: interfaces.BeaconPacket):
 
     with get_cursor() as cursor:
         cursor.execute(sql)
+
+class AppQueries:
+    """
+        Namespaced class for queries needed to support the app but
+        are not directly related.
+    """
+
+    @staticmethod
+    def latest_beacons():
+        with get_cursor() as cursor:
+            table = BeaconPacket.name
+            cursor.execute(
+                f"""
+                    select ap.* from beacon_packet ap
+                    inner join
+                        (
+                            select max(bp.time) as time, bp.bssid
+                            from beacon_packet bp
+                            group by bssid
+                        ) as foo
+                    on ap.time = foo.time and ap.bssid = foo.bssid;
+                """
+            )
+            beacons = cursor.fetchall()
+            return [BeaconPacket.inflate_row(b) for b in beacons]
+
+    @staticmethod
+    def unauthorized_beacons():
+        with get_cursor() as cursor:
+            table = BeaconPacket.name
+            cursor.execute("""
+                select ap.* from beacon_packet ap
+                inner join (
+                    select max(bp.time) as time, bp.bssid
+                    from beacon_packet bp
+                    group by bssid
+                ) as foo on ap.time = foo.time and ap.bssid = foo.bssid
+                inner join (
+		            select bssid from allowed_beacons ab
+	            ) as bar
+	            on bar.bssid != ap.bssid;
+            """)
+            beacons = cursor.fetchall()
+            return [BeaconPacket.inflate_row(b) for b in beacons]
 
 if __name__ == "__main__":
     init()
