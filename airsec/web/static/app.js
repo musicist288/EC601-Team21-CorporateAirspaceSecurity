@@ -59,7 +59,8 @@
                     authorizedBeacons: [],
                     unauthorizedBeacons: [],
                     selected: [],
-                    loading: false
+                    loading: false,
+                    polling: null
                 }
             },
             methods: {
@@ -79,7 +80,6 @@
                     await this.loadData();
                 },
                 loadData: async function () {
-                    this.loading = true;
                     let resp = await window.fetch("/api/v1/traffic");
                     let allBeacons = await resp.json();
 
@@ -101,10 +101,27 @@
 
                     this.authorizedBeacons = result.authorized;
                     this.unauthorizedBeacons = result.unauthorized;
-                    setTimeout(() => this.loading = false, 250);
+                },
+                setupPolling: function () {
+                    if (this.polling == null) {
+                        this.polling = setInterval(this.loadData.bind(this), 5000);
+                    }
+                },
+                cancelPolling: function () {
+                    if (this.polling != null) {
+                        clearInterval(this.polling);
+                        this.polling = null;
+                    }
                 }
             },
-            created: function() { this.loadData(); }
+            mounted: async function() {
+                this.loading = true;
+                await this.loadData();
+                setTimeout(() => this.loading = false, 250);
+                this.setupPolling();
+            },
+            unmounted: function () { this.cancelPolling(); }
+
         });
 
         app.mount("#app");
