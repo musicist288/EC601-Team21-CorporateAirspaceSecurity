@@ -8,6 +8,7 @@ from flask import (
     jsonify,
     render_template
 )
+from flask.json import _load_arg_defaults
 
 from .. import (
     db,
@@ -21,7 +22,12 @@ STATICS = Path(__file__).parent / "static"
 api = Flask("airsec",
             template_folder=TEMPLATES,
             static_folder=STATICS)
-api.before_first_request(db.init)
+
+@api.before_first_request
+def load():
+    from ..applications import load_config
+    db.init(load_config())
+    db.setup_database()
 
 @dataclass
 class AllowListPayload:

@@ -4,6 +4,7 @@ import dotenv
 from dataclasses import dataclass
 import dacite
 import yaml
+from yaml import Loader
 
 dotenv.load_dotenv()
 
@@ -15,6 +16,9 @@ class AirsecConfig:
     timescaledb_hostname: str = "localhost"
     timescaledb_port: int = 5432
     timescaledb_test_dbname: str = ""
+
+    wlan_iface_name: str = ""
+
 
 
 def load_config_from_env() -> AirsecConfig:
@@ -43,7 +47,9 @@ def load_config_from_env() -> AirsecConfig:
 
 
 def load_config_from_file(config_file: str) -> AirsecConfig:
-    data = yaml.load(config_file)
+    with open(config_file) as file_:
+        data = yaml.load(file_, Loader=Loader)
+
     config  = dacite.from_dict(data_class=AirsecConfig, data=data['airsec'])
     return cast(AirsecConfig, config)
 

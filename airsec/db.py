@@ -249,8 +249,7 @@ ENVIRONMENTS = {
 # Public API Helper functions
 ##############################
 
-def init(env="production"):
-    conf = config.load()
+def init(conf: config.AirsecConfig, env="production"):
     DATABASE.load_config(conf)
 
     if env not in ENVIRONMENTS:

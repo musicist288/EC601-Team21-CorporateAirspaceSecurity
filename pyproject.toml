@@ -3,9 +3,12 @@ name = "airsec"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
+packages = [
+    { include = "airsec" }
+]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 scapy = "^2.4.5"
 click = "^8.0.3"
 psycopg2 = "^2.9.1"
