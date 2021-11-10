@@ -1,0 +1,10 @@
+airsec: 
+    timescaledb_username: <username here>
+    timescaledb_password: <password here>
+    timescaledb_dbname: <dbname here>
+    timescaledb_hostname: localhost
+    timescaledb_port: 5432
+    # The interface with which wifi traffic 
+    # is monitored
+    wlan_iface_name: wlan1 
+

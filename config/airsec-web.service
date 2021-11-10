@@ -1,0 +1,10 @@
+[Unit]
+Description=Airsec Web App
+
+[Service]
+Environment=FLASK_APP=airsec.web.api
+ExecStart=/usr/local/bin/flask run --host 0.0.0.0
+User=root
+
+[Install]
+WantedBy=multi-user.target

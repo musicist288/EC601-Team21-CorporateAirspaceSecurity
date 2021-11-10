@@ -1,0 +1,9 @@
+[Unit]
+Description=Airsec WiFi Monitor Service
+
+[Service]
+ExecStart=/usr/bin/python3 -m airsec.applications.wifi_monitor
+User=root
+
+[Install]
+WantedBy=multi-user.target
