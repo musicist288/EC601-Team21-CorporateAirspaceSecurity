@@ -54,6 +54,7 @@
                         {name: "last-seen", align: "center", label: "Last Seen", field: "time", sortable: true},
                         {name: "bssid", align: "center", label: "BSSID", field: "bssid", sortable: true},
                         {name: "ssid", align: "center", label: "SSID", field: "ssid", sortable: true},
+                        {name: "channel", align: "center", label: "Channel", field: "channel", sortable: true},
                         {name: "rssi", align: "center", label: "RSSI", field: "rssi", sortable: true},
                     ],
                     authorizedBeacons: [],
