@@ -58,6 +58,16 @@ def traffic():
     beacons = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in latest]
     return jsonify(count=len(beacons), beacons=beacons)
 
+
+@api.route("/api/v1/rssi", methods=["GET"])
+def beacon_rssi():
+    bssid = request.args.get("bssid")
+    query = f"WHERE bssid = '{bssid.upper()}' and time > now() - INTERVAL '1 year'"
+    packets = db.BeaconPacket.select(filter=query)
+    packets = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in packets]
+    return jsonify(data=packets, bssid=bssid)
+
+
 @api.route("/")
 def index_route():
     return render_template("index.html")

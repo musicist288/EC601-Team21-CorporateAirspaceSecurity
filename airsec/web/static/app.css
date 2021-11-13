@@ -1,0 +1,3 @@
+.q-dialog__inner--minimized>div {
+    max-width: 100% !important; /*this doesn't work*/
+}

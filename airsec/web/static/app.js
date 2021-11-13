@@ -4,11 +4,33 @@
         app.use(Quasar);
 
         app.component("airsec-app", {
+            data: function () {
+                return {
+                    isOpen: false,
+                    bssid: null
+                }
+            },
             template: `
                 <div>
-                    <beacons></beacons>
+                    <beacons @show-rssi="onShowRSSI"></beacons>
+                    <rssi-chart @close="onCloseRSSI"
+                                v-bind:bssid="bssid"
+                                v-if="isOpen">
+                    </rssi>
                 </div>
-            `
+            `,
+            methods: {
+                onShowRSSI: function (bssid) {
+                    if (bssid) {
+                        this.bssid = bssid;
+                        this.isOpen = true;
+                    }
+                },
+                onCloseRSSI: function () {
+                    this.isOpen = false;
+                    this.bssid = null;
+                }
+            }
         });
 
         app.component("beacons", {
@@ -20,6 +42,7 @@
                         :rows="unauthorizedBeacons"
                         :columns="columns"
                         row-key="bssid"
+                        @row-click="unauthorizedClicked"
                         :selected-rows-label="getSelectedString"
                         selection="multiple"
                         v-model:selected="selected"
@@ -36,6 +59,7 @@
                         :rows="authorizedBeacons"
                         :columns="columns"
                         row-key="bssid"
+                        @row-click="authorizedClicked"
                         :selected-rows-label="getSelectedString"
                         selection="multiple"
                         v-model:selected="selected"
@@ -65,6 +89,12 @@
                 }
             },
             methods: {
+                unauthorizedClicked: function(evt, row, index) {
+                    this.$emit("show-rssi", row.bssid);
+                },
+                authorizedClicked: function(evt, row, index) {
+                    this.$emit("show-rssi", row.bssid);
+                },
                 authorizeSelection: async function () {
                     let req_data = [];
                     for (let i of this.selected) {
@@ -121,8 +151,82 @@
                 setTimeout(() => this.loading = false, 250);
                 this.setupPolling();
             },
-            unmounted: function () { this.cancelPolling(); }
+            beforeUnmount: function () {
+                this.$emit("close");
+            },
+            unmounted: function () {
+                this.cancelPolling();
+            }
 
+        });
+
+        app.component("rssi-chart", {
+            props: ["bssid"],
+            data: function () {
+                return { open: true };
+            },
+            template: `<div>
+            <q-dialog @show="dialogShown" @hide="dialogHide" v-model="open">
+                <q-card>
+                    <q-card-section style="height:500px; width:800px">
+                        <canvas class="chart"></canvas>
+                    </q-card-section>
+                </q-card>
+            </q-dialog>
+            </div>`,
+            methods: {
+                fetchData: async function () {
+                    let resp = await window.fetch(`/api/v1/rssi?bssid=${this.bssid}`)
+                    let body = await resp.json()
+                    this.chart.data.datasets[0].data = body.data;
+                    this.chart.update();
+                },
+                setupPolling: function () {
+                    this.interval = window.setInterval(this.fetchData.bind(this), 1000);
+                },
+                clearPolling: function() {
+                    if (this.interval) {
+                        window.clearInterval(this.interval);
+                    }
+                },
+                dialogShown: function () {
+                    const config = {
+                        type: 'line',
+                        data: {
+                            datasets: [{
+                                label: this.bssid,
+                                data: [],
+                                fill: false,
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            parsing: {
+                                xAxisKey: 'time',
+                                yAxisKey: 'rssi'
+                            },
+                            scales: {
+                                x: {
+                                    type: 'timeseries',
+                                }
+                            }
+                        }
+                    };
+
+                    let el = document.querySelector("canvas.chart");
+                    this.chart = new Chart(el, config);
+                    this.setupPolling();
+                },
+                dialogHide: function () {
+                    this.$emit("close");
+                }
+            },
+            mounted: function () {
+            },
+            umounted: function () {
+                this.clearInterval();
+            }
         });
 
         app.mount("#app");
