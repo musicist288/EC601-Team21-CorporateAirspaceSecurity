@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 REMOTE="ubuntu@192.168.45.1"
@@ -8,7 +7,7 @@ PACKAGE=airsec-0.1.0.tar.gz
 eval $(ssh-agent -s)
 ssh-add
 declare -a services=("airsec-web.service" "airsec-monitor.service")
-
+ssh "$REMOTE" "sudo date -u -s \"$(date -u +'%Y-%m-%d %H:%M:%S')\""
 
 # Build the package
 poetry build
