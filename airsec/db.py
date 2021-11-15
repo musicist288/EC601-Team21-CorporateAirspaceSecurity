@@ -169,23 +169,23 @@ class BeaconPacket(Table):
         with get_cursor() as cursor:
             cursor.execute(sql, values)
 
-
     @classmethod
     def inflate_row(cls, row):
         column_names = cls.column_names()
         record = dict(zip(column_names, row))
-        record['time'] = (record['time'].replace(tzinfo=tz.tzutc())
-                                        .astimezone(tz.tzlocal())
-                                        .replace(tzinfo=None))
+        record['time'] = record['time'].replace(tzinfo=tz.tzutc())
         record['payload'] = binascii.unhexlify(record['payload'][1:])
         return interfaces.BeaconPacket(**record)
 
     @classmethod
-    def select(cls, filter=""):
+    def select(cls, filter="", values=None):
         data = []
         sql = f"SELECT * FROM {cls.name} {filter};"
         with get_cursor() as cursor:
-            cursor.execute(sql)
+            if values:
+                cursor.execute(sql, values)
+            else:
+                cursor.execute(sql)
             results = cursor.fetchall()
             for r in results:
                 data.append(cls.inflate_row(r))

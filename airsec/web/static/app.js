@@ -1,4 +1,7 @@
 (function () {
+
+    const chartColor = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000'];
+
     function createApplication() {
         let app = Vue.createApp({setup () {return {}}});
         app.use(Quasar);
@@ -7,28 +10,28 @@
             data: function () {
                 return {
                     isOpen: false,
-                    bssid: null
+                    bssids: null
                 }
             },
             template: `
                 <div>
                     <beacons @show-rssi="onShowRSSI"></beacons>
                     <rssi-chart @close="onCloseRSSI"
-                                v-bind:bssid="bssid"
+                                v-bind:bssids="bssids"
                                 v-if="isOpen">
                     </rssi>
                 </div>
             `,
             methods: {
-                onShowRSSI: function (bssid) {
-                    if (bssid) {
-                        this.bssid = bssid;
+                onShowRSSI: function (bssids) {
+                    if (Array.isArray(bssids) && bssids.length > 0) {
+                        this.bssids = bssids;
                         this.isOpen = true;
                     }
                 },
                 onCloseRSSI: function () {
                     this.isOpen = false;
-                    this.bssid = null;
+                    this.bssids = null;
                 }
             }
         });
@@ -42,13 +45,25 @@
                         :rows="unauthorizedBeacons"
                         :columns="columns"
                         row-key="bssid"
-                        @row-click="unauthorizedClicked"
                         :selected-rows-label="getSelectedString"
                         selection="multiple"
                         v-model:selected="selected"
                         :loading="loading">
                             <template v-slot:top>
-                                <q-btn color="primary" :disable="loading" label="Authorize" @click="authorizeSelection" />
+                                <div class="row col-12 justify-between">
+                                    <div>
+                                        <q-btn color="primary"
+                                            :disable="this.selected == 0"
+                                            label="View RSSI"
+                                            @click="showRSSIChart" />
+                                    </div>
+                                    <div>
+                                        <q-btn color="primary"
+                                            :disable="loading"
+                                            label="Authorize"
+                                            @click="authorizeSelection" />
+                                    </div>
+                                </div>
                             </template>
                         </q-table>
                     </div>
@@ -59,11 +74,13 @@
                         :rows="authorizedBeacons"
                         :columns="columns"
                         row-key="bssid"
-                        @row-click="authorizedClicked"
                         :selected-rows-label="getSelectedString"
                         selection="multiple"
                         v-model:selected="selected"
                         :loading="loading">
+                            <template v-slot:top>
+                                <q-btn color="primary" :disable="this.selected == 0" label="View RSSI" @click="showRSSIChart" />
+                            </template>
                         </q-table>
                     </div>
                 </div>
@@ -89,11 +106,9 @@
                 }
             },
             methods: {
-                unauthorizedClicked: function(evt, row, index) {
-                    this.$emit("show-rssi", row.bssid);
-                },
-                authorizedClicked: function(evt, row, index) {
-                    this.$emit("show-rssi", row.bssid);
+                showRSSIChart: function () {
+                    let bssids = this.selected.map(s => s.bssid);
+                    this.$emit("show-rssi", bssids)
                 },
                 authorizeSelection: async function () {
                     let req_data = [];
@@ -152,16 +167,13 @@
                 this.setupPolling();
             },
             beforeUnmount: function () {
-                this.$emit("close");
-            },
-            unmounted: function () {
                 this.cancelPolling();
+                this.$emit("close");
             }
-
         });
 
         app.component("rssi-chart", {
-            props: ["bssid"],
+            props: ["bssids"],
             data: function () {
                 return { open: true };
             },
@@ -176,9 +188,16 @@
             </div>`,
             methods: {
                 fetchData: async function () {
-                    let resp = await window.fetch(`/api/v1/rssi?bssid=${this.bssid}`)
-                    let body = await resp.json()
-                    this.chart.data.datasets[0].data = body.data;
+                    let query = this.bssids.map(b => "bssid=" + b).join('&');
+                    let resp = await window.fetch(`/api/v1/rssi?${query}`);
+                    let body = await resp.json();
+
+                    this.chart.data.datasets.forEach(function (b) {
+                        if (body.hasOwnProperty(b.label)) {
+                            b.data = body[b.label];
+                        }
+                    });
+
                     this.chart.update();
                 },
                 setupPolling: function () {
@@ -193,13 +212,15 @@
                     const config = {
                         type: 'line',
                         data: {
-                            datasets: [{
-                                label: this.bssid,
-                                data: [],
-                                fill: false,
-                                borderColor: 'rgb(75, 192, 192)',
-                                tension: 0.1
-                            }]
+                            datasets: this.bssids.map((b, i) => {
+                                return {
+                                    label: b,
+                                    data: [],
+                                    fill: false,
+                                    tension: 0.1,
+                                    borderColor: chartColor[i % chartColor.length]
+                                };
+                            })
                         },
                         options: {
                             parsing: {
@@ -222,10 +243,8 @@
                     this.$emit("close");
                 }
             },
-            mounted: function () {
-            },
-            umounted: function () {
-                this.clearInterval();
+            beforeUnmount: function () {
+                this.clearPolling();
             }
         });
 

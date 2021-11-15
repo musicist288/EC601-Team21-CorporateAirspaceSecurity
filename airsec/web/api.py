@@ -6,7 +6,8 @@ from flask import (
     Flask,
     request,
     jsonify,
-    render_template
+    render_template,
+    make_response
 )
 from flask.json import _load_arg_defaults
 
@@ -39,11 +40,11 @@ def allow_list_route():
     if request.method == "POST":
         data = request.json
         if "beacons" not in data:
-            return 422, "Missing required key `beacons`"
+            return make_response("Missing required key `beacons`", 422)
 
         beacons = data['beacons']
         if not isinstance(beacons, list):
-            return 422, "`becacons` must be a list of becon properties to allow."
+            return make_response("`becacons` must be a list of becon properties to allow.", 422)
 
         beacons = list(map(lambda x: interfaces.AllowedBeacon(**x), beacons))
         bssids = [b.bssid for b in beacons]
@@ -51,6 +52,7 @@ def allow_list_route():
 
     beacons = db.AllowedBeacons.select()
     return jsonify(beacons=beacons,)
+
 
 @api.route("/api/v1/traffic", methods=["GET"])
 def traffic():
@@ -61,11 +63,19 @@ def traffic():
 
 @api.route("/api/v1/rssi", methods=["GET"])
 def beacon_rssi():
-    bssid = request.args.get("bssid")
-    query = f"WHERE bssid = '{bssid.upper()}' and time > now() - INTERVAL '1 year'"
-    packets = db.BeaconPacket.select(filter=query)
-    packets = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in packets]
-    return jsonify(data=packets, bssid=bssid)
+    bssids = request.args.to_dict(flat=False).get("bssid")
+    if not bssids:
+        return make_response("Must specify at least one bssid", 422)
+
+    if isinstance(bssids, str):
+        bssids = [bssids]
+    data = {}
+    for bssid in bssids:
+        query = f"WHERE bssid = %s and time > now() - INTERVAL '1 year'"
+        results = db.BeaconPacket.select(filter=query, values=(bssid,))
+        packets = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in results]
+        data[bssid] = packets
+    return jsonify(data)
 
 
 @api.route("/")
