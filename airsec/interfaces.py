@@ -50,6 +50,11 @@ class BeaconPacketAPI:
             channel=obj['channel'],
         )
 
+    def to_dict(self):
+        d = self.__dict__
+        d['time'] = d['time'].isoformat()
+        return d
+
 @dataclass
 class AllowedBeacon:
     bssid: str

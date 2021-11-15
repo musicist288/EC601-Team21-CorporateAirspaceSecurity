@@ -58,6 +58,7 @@ def allow_list_route():
 def traffic():
     latest = db.AppQueries.latest_beacons()
     beacons = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in latest]
+    beacons = [b.to_dict() for b in beacons]
     return jsonify(count=len(beacons), beacons=beacons)
 
 
@@ -74,6 +75,7 @@ def beacon_rssi():
         query = f"WHERE bssid = %s and time > now() - INTERVAL '1 year'"
         results = db.BeaconPacket.select(filter=query, values=(bssid,))
         packets = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in results]
+        packets = [p.to_dict() for p in packets]
         data[bssid] = packets
     return jsonify(data)
 
