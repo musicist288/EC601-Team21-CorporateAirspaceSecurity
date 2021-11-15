@@ -92,7 +92,16 @@
                 return {
                     beacons: [],
                     columns: [
-                        {name: "last-seen", align: "center", label: "Last Seen", field: "time", sortable: true},
+                        {
+                            name: "last-seen",
+                            align: "center",
+                            label: "Last Seen",
+                            field: "time",
+                            sortable: true,
+                            format: function(val) {
+                                return moment(val).format("DD MMM Y HH:mm:ss");
+                            }
+                        },
                         {name: "bssid", align: "center", label: "BSSID", field: "bssid", sortable: true},
                         {name: "ssid", align: "center", label: "SSID", field: "ssid", sortable: true},
                         {name: "channel", align: "center", label: "Channel", field: "channel", sortable: true},
