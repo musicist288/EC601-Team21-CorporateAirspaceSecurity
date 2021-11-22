@@ -2,7 +2,10 @@ from rtlsdr import RtlSdr
 import math
 from datetime import datetime
 from threading import Timer 
-from pylab import *
+# Commented this out since the code that uses it is
+# docstring-ed out.
+# from pylab import *
+
 
 
 NUM_SAMPLES = 32768
@@ -22,13 +25,18 @@ def main():
     sdr.gain = 'auto'
     '''
     
-    a = float(input("Sample rate(MHz): "))
-    sdr.sample_rate = a*1000000
+    while True:
+        a = float(input("Sample rate(MHz): "))
+        if 0 < a <= 3.2:
+            sdr.sample_rate = a*1e6
+            break
+        else:
+            print("Invalid sample rate. Must be between 1Hz and 10MHz")
+
     b = float(input("Center Frequency(MHz): "))
-    sdr.center_freq = b*1000000
+    sdr.center_freq = b*1e6
     sdr.freq_correction = 20   # PPM
     sdr.gain = 'auto'
-    
     
 
     #tones = AudioTones()
@@ -49,7 +57,7 @@ def main():
             min_rssi = min(min_rssi, rssi)
             avg_rssi += rssi
         avg_rssi /= 10
-        now = datetime.datetime.now()
+        now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         print("Time: ", current_time, " Avg_RSSI: ",avg_rssi)
         
