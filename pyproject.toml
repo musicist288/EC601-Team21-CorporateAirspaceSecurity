@@ -17,6 +17,7 @@ PyYAML = "^6.0"
 dacite = "^1.6.0"
 python-dateutil = "^2.8.2"
 Flask = "^2.0.2"
+pyrtlsdr = "^0.2.92"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.910"
