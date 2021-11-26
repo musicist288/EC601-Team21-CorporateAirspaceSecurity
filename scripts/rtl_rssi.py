@@ -6,17 +6,18 @@ from threading import Timer
 # docstring-ed out.
 # from pylab import *
 
-
-
 NUM_SAMPLES = 32768
 BARGRAPH = "################################################################################" \
             + "                                                                                "
             
 
-def main():
+READINGS = 10
 
+def main(): 
+    baseline = 0
+    state = 'capturing'
     sdr = RtlSdr()
-    
+
     '''
     # configure device
     sdr.sample_rate = 1.024e6  # Hz
@@ -41,12 +42,11 @@ def main():
 
     #tones = AudioTones()
     #tones.init()
-    
-    
     #for i in range(0,10):
         #rssi = MeasureRSSI(sdr)
-    
+
     i=1
+    measures = 0
     while i>0:
         # Measure minimum RSSI over a few readings, auto-adjust for dongle gain
         min_rssi = 1000
@@ -59,15 +59,23 @@ def main():
         avg_rssi /= 10
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        print("Time: ", current_time, " Avg_RSSI: ",avg_rssi)
-        
-    
-    
+        if state == "capturing":
+            measures += 1
+            baseline += avg_rssi
+            if measures == READINGS:
+                baseline  /= READINGS
+                state = 'running'
+                print("Running")
+                print("Baseline; %f" % baseline)
+        else:
+            if avg_rssi > baseline + 8:
+                print("Detected issue - Time: ", current_time, " Avg_RSSI: ",avg_rssi)
+
     #ampl_offset = avg_rssi
     #max_rssi = MeasureRSSI(sdr) - ampl_offset
     #avg_rssi = max_rssi + 20;
     #counter = 0
-    
+
     '''
     # use matplotlib to estimate and plot the PSD
     samples = sdr.read_samples(256*1024)
@@ -85,7 +93,7 @@ def MeasureRSSI(sdr):
         power += (sample.real * sample.real) + (sample.imag * sample.imag)
     return 10 * (math.log(power) - math.log(NUM_SAMPLES))
 
-    
+
 if __name__ == "__main__":
     import os, sys
     main()
