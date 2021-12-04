@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import unittest
 from collections import defaultdict
 
@@ -87,7 +87,7 @@ class WifiPacketTests(DatabaseTest):
         result = result[0]
         self.assertEqual(result.bssid, bssid)
         self.assertEqual(result.rssi, rssi)
-        self.assertEqual(result.time, date)
+        self.assertEqual(result.time, date.astimezone(timezone.utc))
         self.assertEqual(result.payload, payload)
         self.assertEqual(result.ssid, ssid)
 
@@ -145,4 +145,4 @@ class TestRFLog(DatabaseTest):
         self.assertTrue(300 in data)
         self.assertEqual(1, len(data[300]))
         self.assertEqual(-10.33, data[300][0][1])
-        self.assertEqual(date, data[300][0][0])
+        self.assertEqual(date.astimezone(timezone.utc), data[300][0][0])
