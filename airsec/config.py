@@ -10,14 +10,25 @@ dotenv.load_dotenv()
 
 @dataclass(frozen=True)
 class AirsecConfig:
+    # Required arguments
     timescaledb_username: str
     timescaledb_password: str
     timescaledb_dbname: str
+
+    # SDR Configuration.
+    sdr_lower_freq: str
+    sdr_upper_freq: str
+    sdr_bin_size: str
+
+    # Optional values
     timescaledb_hostname: str = "localhost"
     timescaledb_port: int = 5432
     timescaledb_test_dbname: str = ""
 
     wlan_iface_name: str = ""
+
+    sdr_integration_interval: Optional[int] = None
+    sdr_tuner_gain: Optional[int] = None
 
 
 

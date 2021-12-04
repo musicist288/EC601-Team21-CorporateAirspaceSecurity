@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
+from collections import defaultdict
 
 from airsec import (
     db,
-    interfaces
+    interfaces,
+    applications
 )
+
 
 class DatabaseTest(unittest.TestCase):
     """Baseclass for database unit tests.
@@ -17,7 +20,8 @@ class DatabaseTest(unittest.TestCase):
         super().setUp()
 
         try:
-            db.init("test")
+            config = applications.load_config()
+            db.init(config, env="test")
         except ValueError as err:
             self.skipTest("Skipping tests due to an error: %s" % err)
 
@@ -126,3 +130,19 @@ class WifiPacketTests(DatabaseTest):
         db.add_packet_if_unauthorized(packet)
         data = db.BeaconPacket.select()
         self.assertEqual(len(data), 0)
+
+class TestRFLog(DatabaseTest):
+
+    def test_log_rf_reading(self):
+        date = datetime.now()
+        db.RFLog.add(date, 300, -10.33)
+        data = db.RFLog.select(200,
+                               400,
+                               date - timedelta(hours=1),
+                               date + timedelta(hours=1))
+
+        self.assertTrue(isinstance(data, defaultdict))
+        self.assertTrue(300 in data)
+        self.assertEqual(1, len(data[300]))
+        self.assertEqual(-10.33, data[300][0][1])
+        self.assertEqual(date, data[300][0][0])

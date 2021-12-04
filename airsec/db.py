@@ -2,6 +2,7 @@ import atexit
 import binascii
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from collections import defaultdict
 import json
 from typing import Union, Tuple
 
@@ -114,6 +115,17 @@ class Table:
     def column_names(cls):
         return [f[0] for f in cls.fields]
 
+    date_format = "%Y-%m-%dT%H:%M:%S.%f"
+
+    @classmethod
+    def format_bytes(cls, data: bytes) -> str:
+        return "E'\X{}'".format(binascii.hexlify(data).decode())
+
+
+    @classmethod
+    def format_date(cls, dt: datetime):
+         return dt.astimezone(timezone.utc).strftime(cls.date_format)
+
 
 #####################
 ### Table Definitions
@@ -141,19 +153,8 @@ class BeaconPacket(Table):
         ("rssi", "INTEGER", "NOT NULL"),
         ("payload", "BYTEA", "NOT NULL"),
     )
+
     is_hypertable = True
-
-    date_format = "%Y-%m-%dT%H:%M:%S.%f"
-
-    @classmethod
-    def format_bytes(cls, data: bytes) -> str:
-        return "E'\X{}'".format(binascii.hexlify(data).decode())
-
-
-    @classmethod
-    def format_date(cls, dt: datetime):
-         return dt.astimezone(timezone.utc).strftime(cls.date_format)
-
 
     @classmethod
     def add(cls, dt: datetime, bssid: str, ssid: str, channel: int, rssi: int, payload: bytes):
@@ -197,7 +198,7 @@ class BeaconPacket(Table):
 class AllowedBeacons(Table):
     name = "allowed_beacons"
     fields = (
-        ("bssid", "MACADDR", "NOT NULL"),
+        ("bssid", "MACADDR", "NOT NULL"), # Don't delete this comma!
     )
 
     @classmethod
@@ -231,6 +232,59 @@ class AllowedBeacons(Table):
             results = cur.fetchall()
             for r in results:
                 data.append(interfaces.AllowedBeacon(**dict(zip(column_names, r))))
+
+        return data
+
+@register_table
+class RFLog(Table):
+    name = "rf_log"
+
+    fields = (
+        ("time", "TIMESTAMP WITHOUT TIME ZONE", "NOT NULL"),
+        ("center_frequency", "float", "NOT NULL"),
+        ("rssi", "float", "NOT NULL"),
+    )
+
+    is_hypertable = True
+
+    @classmethod
+    def add(cls, timestamp: datetime, center_frequency: float, rssi: float):
+        timestamp = BeaconPacket.format_date(timestamp)
+        values = [
+            timestamp,
+            center_frequency,
+            rssi,
+        ]
+
+        sql = f"INSERT INTO {cls.name} VALUES (%s, %s, %s);"
+        with get_cursor() as cursor:
+            cursor.execute(sql, values)
+
+
+    @classmethod
+    def select(cls, low_freq, high_freq, since: datetime, until: datetime):
+        column_names = [f[0] for f in cls.fields]
+        columns = ",".join(column_names)
+
+        since = BeaconPacket.format_date(since)
+        until = BeaconPacket.format_date(until)
+
+        filter = (f"WHERE center_frequency >= {low_freq} AND "
+                  f"center_frequency <= {high_freq} AND "
+                  f"time > '{since}' AND time < '{until}'")
+
+        sql = f"""
+        SELECT {columns} FROM {cls.name} {filter}
+        """
+
+        with get_cursor() as cur:
+            cur.execute(sql)
+            results = cur.fetchall()
+            data = defaultdict(list)
+            for r in results:
+                rec = dict(zip(column_names, r))
+                rec['time'] = rec['time'].replace(tzinfo=tz.tzutc())
+                data[rec['center_frequency']].append((rec['time'], rec['rssi']))
 
         return data
 
