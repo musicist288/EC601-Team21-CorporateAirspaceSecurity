@@ -394,6 +394,31 @@ class AppQueries:
             beacons = cursor.fetchall()
             return [BeaconPacket.inflate_row(b) for b in beacons]
 
+    @staticmethod
+    def evil_twins():
+        with get_cursor() as cursor:
+            bp_table = BeaconPacket.name
+            ap_table = AllowedBeacons.name
+            cursor.execute(f"""
+            select max(bp1.time) as time, bp1.bssid, bp1.ssid, bp1.channel
+            from {bp_table} bp1
+            where bp1.ssid in (
+	            select distinct(bp2.ssid) from {bp_table} bp2 where bp2.bssid in (select distinct(ab1.bssid) from {ap_table} ab1)
+            )
+            and bp1.bssid not in (
+	            select distinct(ab2.bssid) from {ap_table} ab2
+            ) group by bp1.bssid, bp1.ssid, bp1.channel;
+            """)
+
+            beacons = cursor.fetchall()
+            column_names = BeaconPacket.column_names()
+            data = []
+            for row in beacons:
+                record = dict(zip(column_names, row))
+                record['time'] = record['time'].replace(tzinfo=tz.tzutc())
+                data.append(interfaces.BeaconPacket(**record, payload='', rssi=None))
+            return data
+
 if __name__ == "__main__":
     init()
     setup_database()

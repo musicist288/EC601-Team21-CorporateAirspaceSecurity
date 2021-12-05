@@ -41,8 +41,8 @@
                 <div>
                     <div class="q-pa-md">
                         <q-table
-                        title="Unauthorized"
-                        :rows="unauthorizedBeacons"
+                        title="Evil Twins"
+                        :rows="evilTwins"
                         :columns="columns"
                         row-key="bssid"
                         :selected-rows-label="getSelectedString"
@@ -51,18 +51,11 @@
                         :loading="loading">
                             <template v-slot:top>
                                 <div class="row col-12 justify-between">
-                                    <div>
-                                        <q-btn color="primary"
-                                            :disable="this.selected == 0"
-                                            label="View RSSI"
+                                    <div class="q-table__title">Evil Twins</div>
+                                    <q-btn color="primary" 
+                                            :disable="this.selected == 0" 
+                                            label="View RSSI" 
                                             @click="showRSSIChart" />
-                                    </div>
-                                    <div>
-                                        <q-btn color="primary"
-                                            :disable="loading"
-                                            label="Authorize"
-                                            @click="authorizeSelection" />
-                                    </div>
                                 </div>
                             </template>
                         </q-table>
@@ -79,10 +72,45 @@
                         v-model:selected="selected"
                         :loading="loading">
                             <template v-slot:top>
-                                <q-btn color="primary" :disable="this.selected == 0" label="View RSSI" @click="showRSSIChart" />
+                                <div class="row col-12 justify-between">
+                                    <div class="q-table__title">Authorized Beacons</div>
+                                    <q-btn color="primary" 
+                                           :disable="this.selected == 0" 
+                                            label="View RSSI" @click="showRSSIChart" />
+                                </div>
                             </template>
                         </q-table>
                     </div>
+
+                    <div class="q-pa-md">
+                        <q-table
+                        title="Unauthorized"
+                        :rows="unauthorizedBeacons"
+                        :columns="columns"
+                        row-key="bssid"
+                        :selected-rows-label="getSelectedString"
+                        selection="multiple"
+                        v-model:selected="selected"
+                        :loading="loading">
+                            <template v-slot:top>
+                                <div class="row col-12 justify-between">
+                                    <div class="q-table__title">Unauthorized Beacons</div>
+                                    <div>
+                                        <q-btn color="primary"
+                                            style="margin-right: 0.5em"
+                                            :disable="this.selected == 0"
+                                            label="View RSSI"
+                                            @click="showRSSIChart" />
+                                        <q-btn color="primary"
+                                            :disable="loading"
+                                            label="Authorize"
+                                            @click="authorizeSelection" />
+                                    </div>
+                                </div>
+                            </template>
+                        </q-table>
+                    </div>
+
                 </div>
             `,
             getSelectedString: function () {
@@ -109,6 +137,7 @@
                     ],
                     authorizedBeacons: [],
                     unauthorizedBeacons: [],
+                    evilTwins: [],
                     selected: [],
                     loading: false,
                     polling: null
@@ -142,6 +171,10 @@
                     let data = await resp.json()
                     let validBSSIDs = data.beacons.map((b) => b.bssid);
 
+                    resp = await window.fetch("/api/v1/evil-twins");
+                    data = await resp.json();
+                    let evilTwins = data.beacons;
+
                     let result = {authorized: [], unauthorized: []};
                     allBeacons.beacons.reduce(function(prev, current, idx) {
                         if (validBSSIDs.includes(current.bssid)) {
@@ -156,6 +189,7 @@
 
                     this.authorizedBeacons = result.authorized;
                     this.unauthorizedBeacons = result.unauthorized;
+                    this.evilTwins = evilTwins;
                 },
                 setupPolling: function () {
                     if (this.polling == null) {

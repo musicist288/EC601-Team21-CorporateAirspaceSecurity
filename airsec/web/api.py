@@ -61,6 +61,13 @@ def traffic():
     beacons = [b.to_dict() for b in beacons]
     return jsonify(count=len(beacons), beacons=beacons)
 
+@api.route("/api/v1/evil-twins", methods=["GET"])
+def evil_twins():
+    latest = db.AppQueries.evil_twins()
+    beacons = [interfaces.BeaconPacketAPI.from_beacon_packet(bp) for bp in latest]
+    beacons = [b.to_dict() for b in beacons]
+    return jsonify(count=len(beacons), beacons=beacons)
+
 
 @api.route("/api/v1/rssi", methods=["GET"])
 def beacon_rssi():
