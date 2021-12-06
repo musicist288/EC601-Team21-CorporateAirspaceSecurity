@@ -22,6 +22,7 @@ prototype (making testing and debugging easier). The prototype will run our
 software on a Raspberry Pi with an Ubuntu base operating system.
 
 ### Software Selection
+
 As the operating system provides the low-level drivers to use the device, it
 leaves us open to using any open-source software solution for parsing the Wi-Fi
 packets. After examining a variety of open-source projects, we found the python
@@ -30,3 +31,11 @@ applications for ingesting Wi-Fi packets. Using this, we can stream
 data about Wi-Fi traffic in the area to our software that will can decide to
 capture or act on the data according to business logic of our application (not
 specified here).
+
+### Evil-Twin Detection
+
+Beacon packets are logged to a database in order to be able to detect "evil
+twin" attacks where an attacker sets up a malicious access point with the same
+SSID as a trusted network. By logging the packets, we can use database queries
+to select for beacon packets with SSIDs that are the same as our allow list but
+where the BSSIDs do not match.
