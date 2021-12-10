@@ -1,3 +1,5 @@
+#### Attack using Rogue Wi-Fi Access Point
+
 WLANs are the most dominant wireless connectivity infrastructure for short-range and high-throughput 
 Internet services and have been widely deployed in populationdense scenarios such as homes, offices, 
 campuses, shopping malls, and airports. Wi-Fi networks have been designed based on the 
@@ -21,11 +23,16 @@ As the example, hackers can deploy a rogue Wi-Fi AP near to Starbucks Coffee sto
 “Starbucks Free Wi-Fi”. For users who do not check it carefully, there is a high probability for them 
 to choose this rogue Wi-Fi AP.
  
-For attacks launched by deploying rogue Wi-Fi APs, there are four major parties involved: a genuine AP, 
-a regular Wi-Fi service user, a rogue AP, and an attacker. To launch the attack, the rogue Wi-Fi AP 
-just simply sniffs the first three steps of the four-way handshake protocol between the user and the genuine AP. 
-As the authentication process is in an open Wi-Fi network that does not involve any key exchange, the attacker 
-is able to obtain the parameters sent by the genuine AP to the user. 
+For attacks launched by deploying rogue Wi-Fi APs, there are four major parties involved: 
+1. a genuine AP
+2. a regular Wi-Fi service user
+3. a rogue AP
+4. an attacker. 
+
+To launch the attack, the rogue Wi-Fi AP just simply sniffs the first three steps of the four-way 
+handshake protocol between the user and the genuine AP. As the authentication process is in an 
+open Wi-Fi network that does not involve any key exchange, the attacker is able to obtain 
+the parameters sent by the genuine AP to the user. 
 
 Then, by injecting an association response to the user right after its request is sent out in step 3 of the 
 four-way handshake protocol, the rogue Wi-Fi AP will be associated with the user. This is because the user 
